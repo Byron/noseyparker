@@ -5,6 +5,7 @@ use std::sync::mpsc;
 use std::sync::Mutex;
 use std::time::Instant;
 use tracing::{debug, debug_span, error};
+use git_repository as git;
 
 use crate::args;
 
@@ -290,7 +291,7 @@ pub fn run(global_args: &args::GlobalArgs, args: &args::ScanArgs) -> Result<()> 
                     if seen_blobs.contains(&blob_id) {
                         return;
                     }
-                    let blob = match repo.find_blob(*oid) {
+                    let blob = match repo.find_object(git::hash::ObjectId::from(oid.as_bytes())) {
                         Err(e) => {
                             error!(
                                 "Failed to read blob {} from Git repository at {:?}: {}",
@@ -298,7 +299,8 @@ pub fn run(global_args: &args::GlobalArgs, args: &args::ScanArgs) -> Result<()> 
                             );
                             return;
                         }
-                        Ok(blob) => Blob::new(blob_id, blob.content().to_owned()),
+                        // TODO: get rid of this extra copy
+                        Ok(blob) => Blob::new(blob_id, blob.data.to_owned()),
                     };
                     let provenance = Provenance::FromGitRepo(path.to_path_buf());
                     match matcher.scan_blob(&blob, &provenance) {
